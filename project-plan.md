@@ -34,6 +34,12 @@ Three-hour budget: decisions/environment 20m; core API 60m; cache 30m; tests/CI 
 - `requirements.md` matches the original proposal; `.env` and `.venv` confirmed ignored by Git.
 - Historical baseline: before the deployment changes, 25 tests passed locally and in Python 3.12 Docker. That container run reported an upstream Starlette/AnyIO deprecation warning and a non-fatal pytest cache-directory permission warning; neither affected assertions. The current 33-test evidence above supersedes that baseline.
 
+## Postman handoff
+
+- Added importable automated and manual collections, local/cloud environments without credentials, and a run guide with JSON inputs in `postman/`.
+- Verified with Newman 6: local 62 requests / 138 assertions; cloud 75 requests / 176 assertions; zero failures. Local auth checks were skipped as configured.
+- Manual restart/outage collection supplied with instructions; not executed during this Postman handoff. Prior cloud restart evidence remains recorded below. Cache internals and concurrency remain covered by pytest.
+
 ## Remaining delivery limitations
 
 - User approved repository handoff and hosted CI verification before optional work. Local publication review confirmed `.env` is excluded and publishable files do not contain the generated database password.

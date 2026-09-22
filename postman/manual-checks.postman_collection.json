@@ -1,0 +1,276 @@
+{
+  "info": {
+    "name": "Feature Flag API - Manual restart and outage checks",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Feature Flag API acceptance tests. See postman/README.md for setup, ordering, JSON inputs, and coverage limits. No credentials are included."
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      {
+        "key": "key",
+        "value": "X-API-Key",
+        "type": "string"
+      },
+      {
+        "key": "value",
+        "value": "{{api_key}}",
+        "type": "string"
+      },
+      {
+        "key": "in",
+        "value": "header",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "01 After API restart - run this folder only",
+      "item": [
+        {
+          "name": "Database ready after restart",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/health/ready",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"status\\\": \\\"ready\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Stored default survived restart",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{flag_name}}",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"name\\\": \\\"{{flag_name}}\\\", \\\"description\\\": \\\"Postman acceptance test\\\", \\\"default_enabled\\\": true}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Alice override survived restart",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{flag_name}}/evaluate?user_id=alice",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"flag_name\\\": \\\"{{flag_name}}\\\", \\\"user_id\\\": \\\"alice\\\", \\\"enabled\\\": false, \\\"source\\\": \\\"override\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"No downstream caching\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.equal(\"no-store\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Bob still follows persisted default",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{flag_name}}/evaluate?user_id=bob",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"flag_name\\\": \\\"{{flag_name}}\\\", \\\"user_id\\\": \\\"bob\\\", \\\"enabled\\\": true, \\\"source\\\": \\\"default\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"No downstream caching\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.equal(\"no-store\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 Local database stopped - run this folder only",
+      "item": [
+        {
+          "name": "Liveness during DB outage",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/health/live",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"status\\\": \\\"ok\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Readiness during DB outage",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/health/ready",
+            "description": "Expected HTTP 503. Run requests in collection order unless following the manual-check guide.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 503\", () => pm.response.to.have.status(503));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"detail\\\": \\\"Database temporarily unavailable\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"Retry hint\", () => pm.expect(pm.response.headers.get(\"Retry-After\")).to.equal(\"1\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Uncached evaluation during DB outage",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{flag_name}}/evaluate?user_id=outage-{{$guid}}",
+            "description": "Expected HTTP 503. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 503\", () => pm.response.to.have.status(503));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"detail\\\": \\\"Database temporarily unavailable\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Write during DB outage",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{flag_name}}/default",
+            "description": "Expected HTTP 503. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"default_enabled\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 503\", () => pm.response.to.have.status(503));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"detail\\\": \\\"Database temporarily unavailable\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ],
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.environment.get('base_url') !== 'http://localhost:8000' || String(pm.environment.get('manual_outage')) !== 'true') { pm.execution.skipRequest(); }"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

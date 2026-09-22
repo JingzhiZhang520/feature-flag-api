@@ -132,6 +132,10 @@ alembic check
 
 GitHub Actions installs dependencies, migrates PostgreSQL, checks schema drift, runs formatting/lint and the full test suite, and builds the Docker image. The repository is [JingzhiZhang520/feature-flag-api](https://github.com/JingzhiZhang520/feature-flag-api). Pushes and pull requests trigger the workflow; hosted verification status is recorded in `project-plan.md`.
 
+## Postman acceptance tests
+
+Import the collections and local/cloud environments in [`postman/`](postman/README.md). The guide includes JSON inputs, ordered automated checks, and separate manual restart/outage checks. The automated collection was verified locally and against the protected DigitalOcean API.
+
 ## Scope and limitations
 
 Flag endpoints support a shared API key. User accounts, granular authorization, rate limiting, and backup operations are not implemented. There is no UI, user registration, override deletion, audit history, percentage rollout, or flag listing.

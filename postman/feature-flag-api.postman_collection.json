@@ -1,0 +1,2555 @@
+{
+  "info": {
+    "name": "Feature Flag API - Automated acceptance",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Feature Flag API acceptance tests. See postman/README.md for setup, ordering, JSON inputs, and coverage limits. No credentials are included."
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      {
+        "key": "key",
+        "value": "X-API-Key",
+        "type": "string"
+      },
+      {
+        "key": "value",
+        "value": "{{api_key}}",
+        "type": "string"
+      },
+      {
+        "key": "in",
+        "value": "header",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "01 Setup and public health",
+      "item": [
+        {
+          "name": "Initialize unique test names and check liveness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/health/live",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const id = pm.variables.replaceIn('{{$guid}}').replace(/-/g, '');",
+                  "pm.environment.set('flag_name', 'postman-' + id);",
+                  "pm.environment.set('missing_flag', 'missing-' + id);",
+                  "pm.environment.set('boundary_flag', 'b' + id + 'x'.repeat(67));",
+                  "pm.environment.set('empty_desc_flag', 'empty-' + id);",
+                  "pm.environment.set('invalid_flag', 'invalid-' + id);",
+                  "pm.environment.set('long_name', 'x'.repeat(101));",
+                  "pm.environment.set('long_user', 'x'.repeat(129));",
+                  "pm.environment.set('boundary_user', 'u'.repeat(128));",
+                  "pm.environment.set('long_description', 'x'.repeat(1001));",
+                  "pm.environment.set('boundary_description', 'x'.repeat(1000));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"status\\\": \\\"ok\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Readiness is public",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/health/ready",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"status\\\": \\\"ready\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Interactive docs are public",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/docs",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"HTML documentation\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"text/html\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 Flag lifecycle and precedence",
+      "item": [
+        {
+          "name": "Create disabled flag",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags",
+            "description": "Expected HTTP 201. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{flag_name}}\",\n  \"description\": \"Postman acceptance test\",\n  \"default_enabled\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"name\\\": \\\"{{flag_name}}\\\", \\\"description\\\": \\\"Postman acceptance test\\\", \\\"default_enabled\\\": false}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"Location header\", () => pm.expect(pm.response.headers.get(\"Location\")).to.equal(\"/flags/\" + pm.environment.get(\"flag_name\")));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Read stored flag",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{flag_name}}",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"name\\\": \\\"{{flag_name}}\\\", \\\"description\\\": \\\"Postman acceptance test\\\", \\\"default_enabled\\\": false}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Duplicate name rejected",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags",
+            "description": "Expected HTTP 409. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{flag_name}}\",\n  \"default_enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"detail\\\": \\\"Flag already exists\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Alice follows disabled default",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{flag_name}}/evaluate?user_id=alice",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"flag_name\\\": \\\"{{flag_name}}\\\", \\\"user_id\\\": \\\"alice\\\", \\\"enabled\\\": false, \\\"source\\\": \\\"default\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"No downstream caching\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.equal(\"no-store\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Repeated evaluation stays false",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{flag_name}}/evaluate?user_id=alice",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"flag_name\\\": \\\"{{flag_name}}\\\", \\\"user_id\\\": \\\"alice\\\", \\\"enabled\\\": false, \\\"source\\\": \\\"default\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"No downstream caching\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.equal(\"no-store\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Set Alice override True",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{flag_name}}/users/alice",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"flag_name\\\": \\\"{{flag_name}}\\\", \\\"user_id\\\": \\\"alice\\\", \\\"enabled\\\": true}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Repeat same override (idempotent)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{flag_name}}/users/alice",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"flag_name\\\": \\\"{{flag_name}}\\\", \\\"user_id\\\": \\\"alice\\\", \\\"enabled\\\": true}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "True override beats false default",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{flag_name}}/evaluate?user_id=alice",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"flag_name\\\": \\\"{{flag_name}}\\\", \\\"user_id\\\": \\\"alice\\\", \\\"enabled\\\": true, \\\"source\\\": \\\"override\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"No downstream caching\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.equal(\"no-store\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Bob remains isolated from Alice",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{flag_name}}/evaluate?user_id=bob",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"flag_name\\\": \\\"{{flag_name}}\\\", \\\"user_id\\\": \\\"bob\\\", \\\"enabled\\\": false, \\\"source\\\": \\\"default\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"No downstream caching\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.equal(\"no-store\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Set default True",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{flag_name}}/default",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"default_enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"name\\\": \\\"{{flag_name}}\\\", \\\"description\\\": \\\"Postman acceptance test\\\", \\\"default_enabled\\\": true}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Repeat same global default (idempotent)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{flag_name}}/default",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"default_enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"name\\\": \\\"{{flag_name}}\\\", \\\"description\\\": \\\"Postman acceptance test\\\", \\\"default_enabled\\\": true}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Bob sees changed default",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{flag_name}}/evaluate?user_id=bob",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"flag_name\\\": \\\"{{flag_name}}\\\", \\\"user_id\\\": \\\"bob\\\", \\\"enabled\\\": true, \\\"source\\\": \\\"default\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"No downstream caching\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.equal(\"no-store\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "True override with true default",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{flag_name}}/evaluate?user_id=alice",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"flag_name\\\": \\\"{{flag_name}}\\\", \\\"user_id\\\": \\\"alice\\\", \\\"enabled\\\": true, \\\"source\\\": \\\"override\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"No downstream caching\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.equal(\"no-store\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Set Alice override False",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{flag_name}}/users/alice",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"flag_name\\\": \\\"{{flag_name}}\\\", \\\"user_id\\\": \\\"alice\\\", \\\"enabled\\\": false}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "False override beats true default",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{flag_name}}/evaluate?user_id=alice",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"flag_name\\\": \\\"{{flag_name}}\\\", \\\"user_id\\\": \\\"alice\\\", \\\"enabled\\\": false, \\\"source\\\": \\\"override\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"No downstream caching\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.equal(\"no-store\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Set default False",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{flag_name}}/default",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"default_enabled\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"name\\\": \\\"{{flag_name}}\\\", \\\"description\\\": \\\"Postman acceptance test\\\", \\\"default_enabled\\\": false}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "False override with false default",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{flag_name}}/evaluate?user_id=alice",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"flag_name\\\": \\\"{{flag_name}}\\\", \\\"user_id\\\": \\\"alice\\\", \\\"enabled\\\": false, \\\"source\\\": \\\"override\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"No downstream caching\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.equal(\"no-store\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Bob sees disabled default",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{flag_name}}/evaluate?user_id=bob",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"flag_name\\\": \\\"{{flag_name}}\\\", \\\"user_id\\\": \\\"bob\\\", \\\"enabled\\\": false, \\\"source\\\": \\\"default\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"No downstream caching\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.equal(\"no-store\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Prepare persistence state: default true",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{flag_name}}/default",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"default_enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"name\\\": \\\"{{flag_name}}\\\", \\\"description\\\": \\\"Postman acceptance test\\\", \\\"default_enabled\\\": true}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Persistence state: Bob true",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{flag_name}}/evaluate?user_id=bob",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"flag_name\\\": \\\"{{flag_name}}\\\", \\\"user_id\\\": \\\"bob\\\", \\\"enabled\\\": true, \\\"source\\\": \\\"default\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"No downstream caching\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.equal(\"no-store\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Persistence state: Alice false",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{flag_name}}/evaluate?user_id=alice",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"flag_name\\\": \\\"{{flag_name}}\\\", \\\"user_id\\\": \\\"alice\\\", \\\"enabled\\\": false, \\\"source\\\": \\\"override\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"No downstream caching\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.equal(\"no-store\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 Unknown flags",
+      "item": [
+        {
+          "name": "Read unknown flag",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{missing_flag}}",
+            "description": "Expected HTTP 404. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"detail\\\": \\\"Flag not found\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Evaluate unknown flag",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{missing_flag}}/evaluate?user_id=alice",
+            "description": "Expected HTTP 404. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"detail\\\": \\\"Flag not found\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Set default unknown flag",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{missing_flag}}/default",
+            "description": "Expected HTTP 404. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"default_enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"detail\\\": \\\"Flag not found\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Set override unknown flag",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{missing_flag}}/users/alice",
+            "description": "Expected HTTP 404. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"detail\\\": \\\"Flag not found\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04 Validation and unchanged state",
+      "item": [
+        {
+          "name": "Empty name",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"\",\n  \"default_enabled\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Invalid name characters",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"bad name\",\n  \"default_enabled\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Name exceeds 100 characters",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{long_name}}\",\n  \"default_enabled\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "String boolean",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{invalid_flag}}\",\n  \"default_enabled\": \"false\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Integer boolean",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{invalid_flag}}\",\n  \"default_enabled\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Null boolean",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{invalid_flag}}\",\n  \"default_enabled\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Description exceeds 1000 characters",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{invalid_flag}}\",\n  \"default_enabled\": false,\n  \"description\": \"{{long_description}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Description contains NUL",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{invalid_flag}}\",\n  \"default_enabled\": false,\n  \"description\": \"bad\\u0000value\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Unexpected field",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{invalid_flag}}\",\n  \"default_enabled\": false,\n  \"unexpected\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Missing name",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"default_enabled\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Missing default_enabled",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{invalid_flag}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Malformed JSON",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"broken\",",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Rejected creations leave no flag",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{invalid_flag}}",
+            "description": "Expected HTTP 404. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"detail\\\": \\\"Flag not found\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Missing user",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{flag_name}}/evaluate",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Empty user",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{flag_name}}/evaluate?user_id=",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "User exceeds 128 characters",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{flag_name}}/evaluate?user_id={{long_user}}",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Invalid user characters",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{flag_name}}/evaluate?user_id=bad%20user",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Missing default",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{flag_name}}/default",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "String default",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{flag_name}}/default",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"default_enabled\": \"true\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Extra default field",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{flag_name}}/default",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"default_enabled\": false,\n  \"extra\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Missing override",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{flag_name}}/users/alice",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "String override",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{flag_name}}/users/alice",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": \"false\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Integer override",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{flag_name}}/users/alice",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Null override",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{flag_name}}/users/alice",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Extra override field",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{flag_name}}/users/alice",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": true,\n  \"extra\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Invalid user path",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{flag_name}}/users/bad%20user",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Long user path",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{flag_name}}/users/{{long_user}}",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Invalid flag path",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/bad%20name",
+            "description": "Expected HTTP 422. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Structured validation error\", () => { const d=pm.response.json().detail; pm.expect(d).to.be.an(\"array\").that.is.not.empty; pm.expect(d[0]).to.include.all.keys(\"type\", \"loc\", \"msg\", \"input\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Rejected updates preserve Alice false",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{flag_name}}/evaluate?user_id=alice",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"flag_name\\\": \\\"{{flag_name}}\\\", \\\"user_id\\\": \\\"alice\\\", \\\"enabled\\\": false, \\\"source\\\": \\\"override\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"No downstream caching\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.equal(\"no-store\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Rejected updates preserve default true",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{flag_name}}/evaluate?user_id=bob",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"flag_name\\\": \\\"{{flag_name}}\\\", \\\"user_id\\\": \\\"bob\\\", \\\"enabled\\\": true, \\\"source\\\": \\\"default\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"No downstream caching\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.equal(\"no-store\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05 Accepted boundary values",
+      "item": [
+        {
+          "name": "Maximum name and description lengths accepted",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags",
+            "description": "Expected HTTP 201. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{boundary_flag}}\",\n  \"description\": \"{{boundary_description}}\",\n  \"default_enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"name\\\": \\\"{{boundary_flag}}\\\", \\\"description\\\": \\\"{{boundary_description}}\\\", \\\"default_enabled\\\": true}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Maximum user ID length accepted",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{boundary_flag}}/users/{{boundary_user}}",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"flag_name\\\": \\\"{{boundary_flag}}\\\", \\\"user_id\\\": \\\"{{boundary_user}}\\\", \\\"enabled\\\": false}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Evaluate boundary values",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{boundary_flag}}/evaluate?user_id={{boundary_user}}",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"flag_name\\\": \\\"{{boundary_flag}}\\\", \\\"user_id\\\": \\\"{{boundary_user}}\\\", \\\"enabled\\\": false, \\\"source\\\": \\\"override\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Description can be omitted",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags",
+            "description": "Expected HTTP 201. Run requests in collection order unless following the manual-check guide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{empty_desc_flag}}\",\n  \"default_enabled\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"name\\\": \\\"{{empty_desc_flag}}\\\", \\\"description\\\": \\\"\\\", \\\"default_enabled\\\": false}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "06 Authentication (protected environments only)",
+      "item": [
+        {
+          "name": "Missing key: create",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags",
+            "description": "Expected HTTP 401. Run requests in collection order unless following the manual-check guide.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{missing_flag}}\",\n  \"default_enabled\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"detail\\\": \\\"Missing or invalid API key\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"Authentication challenge\", () => pm.expect(pm.response.headers.get(\"WWW-Authenticate\")).to.equal(\"ApiKey\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Missing key: read",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{flag_name}}",
+            "description": "Expected HTTP 401. Run requests in collection order unless following the manual-check guide.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"detail\\\": \\\"Missing or invalid API key\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"Authentication challenge\", () => pm.expect(pm.response.headers.get(\"WWW-Authenticate\")).to.equal(\"ApiKey\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Missing key: default update",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{flag_name}}/default",
+            "description": "Expected HTTP 401. Run requests in collection order unless following the manual-check guide.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"default_enabled\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"detail\\\": \\\"Missing or invalid API key\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"Authentication challenge\", () => pm.expect(pm.response.headers.get(\"WWW-Authenticate\")).to.equal(\"ApiKey\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Missing key: override update",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{flag_name}}/users/alice",
+            "description": "Expected HTTP 401. Run requests in collection order unless following the manual-check guide.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"detail\\\": \\\"Missing or invalid API key\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"Authentication challenge\", () => pm.expect(pm.response.headers.get(\"WWW-Authenticate\")).to.equal(\"ApiKey\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Missing key: cached evaluation",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{flag_name}}/evaluate?user_id=alice",
+            "description": "Expected HTTP 401. Run requests in collection order unless following the manual-check guide.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"detail\\\": \\\"Missing or invalid API key\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"Authentication challenge\", () => pm.expect(pm.response.headers.get(\"WWW-Authenticate\")).to.equal(\"ApiKey\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Wrong key: create",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "intentionally-invalid-test-key"
+              }
+            ],
+            "url": "{{base_url}}/flags",
+            "description": "Expected HTTP 401. Run requests in collection order unless following the manual-check guide.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{missing_flag}}\",\n  \"default_enabled\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"detail\\\": \\\"Missing or invalid API key\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"Authentication challenge\", () => pm.expect(pm.response.headers.get(\"WWW-Authenticate\")).to.equal(\"ApiKey\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Wrong key: read",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "intentionally-invalid-test-key"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{flag_name}}",
+            "description": "Expected HTTP 401. Run requests in collection order unless following the manual-check guide.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"detail\\\": \\\"Missing or invalid API key\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"Authentication challenge\", () => pm.expect(pm.response.headers.get(\"WWW-Authenticate\")).to.equal(\"ApiKey\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Wrong key: default update",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "intentionally-invalid-test-key"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{flag_name}}/default",
+            "description": "Expected HTTP 401. Run requests in collection order unless following the manual-check guide.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"default_enabled\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"detail\\\": \\\"Missing or invalid API key\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"Authentication challenge\", () => pm.expect(pm.response.headers.get(\"WWW-Authenticate\")).to.equal(\"ApiKey\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Wrong key: override update",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "intentionally-invalid-test-key"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{flag_name}}/users/alice",
+            "description": "Expected HTTP 401. Run requests in collection order unless following the manual-check guide.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"detail\\\": \\\"Missing or invalid API key\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"Authentication challenge\", () => pm.expect(pm.response.headers.get(\"WWW-Authenticate\")).to.equal(\"ApiKey\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Wrong key: cached evaluation",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "intentionally-invalid-test-key"
+              }
+            ],
+            "url": "{{base_url}}/flags/{{flag_name}}/evaluate?user_id=alice",
+            "description": "Expected HTTP 401. Run requests in collection order unless following the manual-check guide.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"detail\\\": \\\"Missing or invalid API key\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"Authentication challenge\", () => pm.expect(pm.response.headers.get(\"WWW-Authenticate\")).to.equal(\"ApiKey\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Unauthorized create left no flag",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{missing_flag}}",
+            "description": "Expected HTTP 404. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"detail\\\": \\\"Flag not found\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Unauthorized writes did not change Alice",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{flag_name}}/evaluate?user_id=alice",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"flag_name\\\": \\\"{{flag_name}}\\\", \\\"user_id\\\": \\\"alice\\\", \\\"enabled\\\": false, \\\"source\\\": \\\"override\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"No downstream caching\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.equal(\"no-store\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Unauthorized writes did not change default",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/flags/{{flag_name}}/evaluate?user_id=bob",
+            "description": "Expected HTTP 200. Run requests in collection order unless following the manual-check guide."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Response matches expected values\", () => {",
+                  " const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"flag_name\\\": \\\"{{flag_name}}\\\", \\\"user_id\\\": \\\"bob\\\", \\\"enabled\\\": true, \\\"source\\\": \\\"default\\\"}\"));",
+                  " pm.expect(pm.response.json()).to.deep.equal(expected);",
+                  "});",
+                  "pm.test(\"No downstream caching\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.equal(\"no-store\"));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ],
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (String(pm.environment.get('auth_required')) !== 'true') { pm.execution.skipRequest(); }"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
