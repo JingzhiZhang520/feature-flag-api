@@ -64,7 +64,10 @@ Setting a default or override repeatedly is idempotent. Concurrent writes use Po
 
 ```mermaid
 flowchart TD
-    Caller[Application or operator] --> API[FastAPI validation and routing]
+    Caller[Application or operator] -->|flag request| Auth{API-key check when configured}
+    Auth -->|missing or invalid key| Unauthorized[401 Unauthorized]
+    Unauthorized --> Caller
+    Auth -->|valid key or local auth disabled| API[FastAPI validation and routing]
     API -->|evaluate| Cache{In-process evaluation cache}
     Cache -->|hit| Answer[Enabled state and decision source]
     Cache -->|miss| Read[Single SQL query: default plus user override]
@@ -79,6 +82,8 @@ flowchart TD
     Answer --> Caller
     Success --> Caller
 ```
+
+Cloud flag requests require `X-API-Key` before accessing either the cache or PostgreSQL. Local authentication is optional. Health endpoints and `/docs` are public and are outside the flag-request flow above.
 
 The cache stores up to 1,024 `(flag, user)` evaluations, evicts the least recently used entry, and expires entries after five seconds. False values are cached correctly. Writes clear the cache after commit and before returning success. A generation counter prevents an older in-flight read from refilling it after invalidation. Broad invalidation trades hit rate for simplicity. Database I/O runs outside the cache lock.
 

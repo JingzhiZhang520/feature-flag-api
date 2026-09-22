@@ -10,7 +10,7 @@ Three-hour budget: decisions/environment 20m; core API 60m; cache 30m; tests/CI 
 | Repeated state-setting requests keep the same result | Yes | Repeated PUT and concurrent upsert tests |
 | Cached evaluations avoid SQL; updates invalidate; TTL and capacity enforced | Yes | SQL event counting, cache unit tests, overlapping read/write test |
 | Unknown flag → 404; malformed inputs → 422; unavailable DB on miss → 503 | Yes | Integration suite; failure details remain generic |
-| Unit and PostgreSQL integration tests | Yes | 33 passed locally after deployment changes; original 25 also passed in Python 3.12 Docker |
+| Unit and PostgreSQL integration tests | Yes | Current 33-test suite passed locally on Python 3.9 and in hosted CI on Python 3.12 |
 | GitHub Actions, README, architecture flow diagram | Yes | Local verification and hosted GitHub Actions passed; run linked below |
 
 ## Environment
@@ -25,14 +25,14 @@ Three-hour budget: decisions/environment 20m; core API 60m; cache 30m; tests/CI 
 
 ## Verification evidence
 
-- `pytest -q --tb=short`: 25 passed on Python 3.9; same suite passed on Python 3.12 in Docker.
+- Current suite: 33 tests passed locally on Python 3.9 and in hosted CI on Python 3.12, including API-key protection and cloud configuration checks.
+- Handoff commit `e3841f9` passed [GitHub Actions run 35777245797](https://github.com/JingzhiZhang520/feature-flag-api/actions/runs/35777245797) on 2026-09-22: dependency installation, lint, formatting, PostgreSQL migrations, schema drift check, all 33 tests, and Docker image build succeeded.
 - `ruff check .` and `ruff format --check .`: passed.
 - `alembic upgrade head` and `alembic check`: passed, no schema drift.
 - Docker Compose built and started PostgreSQL, migration job, and API.
 - HTTP smoke checked readiness, create, evaluation, and user override. Restarted the API and verified persisted results.
 - `requirements.md` matches the original proposal; `.env` and `.venv` confirmed ignored by Git.
-- Python 3.12 tests reported an upstream Starlette/AnyIO deprecation warning and a non-fatal pytest cache-directory permission warning. Neither affected assertions.
-- Hosted [GitHub Actions run 35772405932](https://github.com/JingzhiZhang520/feature-flag-api/actions/runs/35772405932) passed for commit `8824db1` on 2026-09-22: dependency installation, lint, formatting, PostgreSQL migrations, schema drift check, pytest, and Docker image build all succeeded.
+- Historical baseline: before the deployment changes, 25 tests passed locally and in Python 3.12 Docker. That container run reported an upstream Starlette/AnyIO deprecation warning and a non-fatal pytest cache-directory permission warning; neither affected assertions. The current 33-test evidence above supersedes that baseline.
 
 ## Remaining delivery limitations
 
