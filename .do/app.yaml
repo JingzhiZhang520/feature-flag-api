@@ -16,6 +16,10 @@ services:
       http_path: /health/ready
       initial_delay_seconds: 15
     envs:
+      - key: API_KEY
+        scope: RUN_TIME
+        type: SECRET
+        value: ""
       - key: DATABASE_URL
         scope: RUN_TIME
         value: ${db.DATABASE_URL}

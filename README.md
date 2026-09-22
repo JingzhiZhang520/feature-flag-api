@@ -137,6 +137,8 @@ Redis remains deferred. Moving to Redis would support a shared cache, but still 
 
 Deployment configuration is in `.do/app.yaml`; live deployment status is recorded in `project-plan.md`. It specifies a single 512 MiB API instance and a PostgreSQL 16 development database, with a base cost of approximately $12/month before additional usage/tax. A development database is intended for demonstrations, not production use.
 
+[Configure this app on DigitalOcean](https://cloud.digitalocean.com/apps/new?repo=https://github.com/JingzhiZhang520/feature-flag-api/tree/main) uses `.do/deploy.template.yaml`, the same spec wrapped for the public-repository deployment flow. Select the intended team and supply the key before deploying.
+
 Deploy the public repository after GitHub Actions passes. Use the Dockerfile, port 8000, run command `sh deploy/start.sh`, and readiness path `/health/ready`. The startup command applies migrations before starting one worker. The app spec binds `DATABASE_URL` to `${db.DATABASE_URL}` and enables `REQUIRE_API_KEY=true`.
 
 Before creating the app, add a randomly generated `API_KEY` of at least 32 characters as an **encrypted runtime environment variable**. The template intentionally contains no key, and the app will refuse to start without one. Keep keys out of Git, build arguments, URLs, and logs. App Platform provides the public HTTPS endpoint; use HTTPS when sending the key.
