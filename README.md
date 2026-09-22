@@ -103,11 +103,13 @@ Configuration is read from environment variables or `.env`:
 
 | Variable | Purpose |
 |---|---|
-| `DATABASE_URL` | Required SQLAlchemy URL using `postgresql+psycopg://` |
+| `DATABASE_URL` | Required PostgreSQL URL; accepts `postgresql://`, `postgres://`, or `postgresql+psycopg://`; preserves TLS parameters |
 | `POSTGRES_PASSWORD` | Compose database password; choose URL-safe alphanumeric text |
 | `CACHE_MAX_ENTRIES` | Default `1024`, allowed `1–100000` |
 | `CACHE_TTL_SECONDS` | Default `5`, greater than zero and at most `60` |
 | `TEST_DATABASE_URL` | Explicit PostgreSQL URL for integration tests |
+| `API_KEY` | Optional local API key, at least 32 characters; required for cloud deployment |
+| `REQUIRE_API_KEY` | Set `true` in the cloud to reject startup without a key; default `false` for local use |
 
 Use a separate test database:
 
@@ -127,8 +129,20 @@ GitHub Actions installs dependencies, migrates PostgreSQL, checks schema drift, 
 
 ## Scope and limitations
 
-This first version is for local or trusted private use. Authentication, authorization, TLS termination, rate limiting, backup operations, and public deployment are not implemented. Access control must be selected before exposing management endpoints publicly. There is no UI, user registration, override deletion, audit history, percentage rollout, or flag listing.
+Flag endpoints support a shared API key. User accounts, granular authorization, rate limiting, and backup operations are not implemented. There is no UI, user registration, override deletion, audit history, percentage rollout, or flag listing.
 
-Redis and DigitalOcean remain optional backlog items. Moving to Redis would support a shared cache, but still needs coordinated invalidation and outage handling. Dependencies use bounded version ranges rather than a full lockfile. Production rollout would also require workload measurement and operational configuration.
+Redis remains deferred. Moving to Redis would support a shared cache, but still needs coordinated invalidation and outage handling. Dependencies use bounded version ranges rather than a full lockfile. Production rollout would also require workload measurement and operational configuration.
+
+## DigitalOcean demo deployment
+
+Deployment configuration is in `.do/app.yaml`; live deployment status is recorded in `project-plan.md`. It specifies a single 512 MiB API instance and a PostgreSQL 16 development database, with a base cost of approximately $12/month before additional usage/tax. A development database is intended for demonstrations, not production use.
+
+Deploy the public repository after GitHub Actions passes. Use the Dockerfile, port 8000, run command `sh deploy/start.sh`, and readiness path `/health/ready`. The startup command applies migrations before starting one worker. The app spec binds `DATABASE_URL` to `${db.DATABASE_URL}` and enables `REQUIRE_API_KEY=true`.
+
+Before creating the app, add a randomly generated `API_KEY` of at least 32 characters as an **encrypted runtime environment variable**. The template intentionally contains no key, and the app will refuse to start without one. Keep keys out of Git, build arguments, URLs, and logs. App Platform provides the public HTTPS endpoint; use HTTPS when sending the key.
+
+In `/docs`, click **Authorize** and supply the key. For curl, supply an `X-API-Key` header from a local environment variable. Missing or incorrect keys return `401` on every flag endpoint, including cached evaluations. `/health/live`, `/health/ready`, and `/docs` remain public. Configure a new key and redeploy to rotate it; this single-key demo does not provide a grace period for the old key.
+
+Keep one instance and worker. During deployment, old and new instances may overlap briefly; cross-instance cache freshness is bounded by the five-second TTL. PostgreSQL data survives API redeployment. Deleting the app and its development database can destroy the stored flags; export needed data first. Billing continues while resources exist.
 
 The preserved assignment is in `requirements.md`; approved decisions and implementation assumptions are in `decisions.md`; verification evidence is tracked in `project-plan.md`.

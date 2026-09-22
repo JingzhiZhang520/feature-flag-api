@@ -1,4 +1,5 @@
 from sqlalchemy import Boolean, ForeignKey, String, create_engine
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -25,10 +26,12 @@ class UserOverride(Base):
 
 
 def make_engine(database_url: str):
-    if not database_url.startswith("postgresql+psycopg://"):
-        raise ValueError("DATABASE_URL must use postgresql+psycopg://")
+    url = make_url(database_url)
+    if url.drivername not in {"postgres", "postgresql", "postgresql+psycopg"}:
+        raise ValueError("DATABASE_URL must be a PostgreSQL URL")
+    url = url.set(drivername="postgresql+psycopg")
     return create_engine(
-        database_url,
+        url,
         pool_pre_ping=True,
         pool_size=5,
         max_overflow=5,

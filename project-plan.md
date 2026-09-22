@@ -43,8 +43,14 @@ Three-hour budget: decisions/environment 20m; core API 60m; cache 30m; tests/CI 
 ## Optional backlog
 
 - Redis shared cache.
-- DigitalOcean deployment after required checks and a deployment/access-control decision.
 - Customer features such as override removal and audit history.
+
+## Approved DigitalOcean deployment
+
+- Target: separate `feature-flag-api` app in team `d37603f4-d0af-49df-89ae-5fe92342dfa5` (Coding Blitz 01).
+- User approved approximately $12/month base demo setup plus usage/tax and shared API-key protection.
+- Implemented: protected flag routes, fail-closed cloud configuration, PostgreSQL URL compatibility, deployment spec, migration/start command.
+- Verification and live deployment: in progress; no deployed URL claimed yet.
 
 ## Contributions
 

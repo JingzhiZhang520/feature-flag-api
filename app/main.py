@@ -1,9 +1,11 @@
 import logging
+import secrets
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Path, Query, Response
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Path, Query, Response, Security
 from fastapi.responses import JSONResponse
+from fastapi.security import APIKeyHeader
 from sqlalchemy import and_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import OperationalError, ProgrammingError, TimeoutError
@@ -41,6 +43,20 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     app = FastAPI(title="Feature Flag API", version="0.1.0", lifespan=lifespan)
     app.state.engine = engine
     app.state.cache = cache
+    api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+    def authenticate(key: Optional[str] = Security(api_key_header)):
+        if settings.api_key is not None and (
+            key is None
+            or not secrets.compare_digest(
+                key.encode("utf-8"), settings.api_key.get_secret_value().encode("utf-8")
+            )
+        ):
+            raise HTTPException(
+                401, "Missing or invalid API key", headers={"WWW-Authenticate": "ApiKey"}
+            )
+
+    flags = APIRouter(dependencies=[Depends(authenticate)])
 
     @app.exception_handler(OperationalError)
     @app.exception_handler(TimeoutError)
@@ -68,7 +84,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             raise HTTPException(503, "Database schema not ready") from None
         return {"status": "ready"}
 
-    @app.post("/flags", status_code=201, response_model=FlagResponse, tags=["flags"])
+    @flags.post("/flags", status_code=201, response_model=FlagResponse, tags=["flags"])
     def create_flag(body: CreateFlag, response: Response):
         with Session(engine) as session, session.begin():
             row = session.execute(
@@ -84,7 +100,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         response.headers["Location"] = f"/flags/{result.name}"
         return result
 
-    @app.get("/flags/{flag_name}", response_model=FlagResponse, tags=["flags"])
+    @flags.get("/flags/{flag_name}", response_model=FlagResponse, tags=["flags"])
     def get_flag(
         flag_name: str = Path(min_length=1, max_length=100, pattern=NAME_PATTERN),
     ):
@@ -94,7 +110,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
                 raise HTTPException(404, "Flag not found")
             return FlagResponse.model_validate(flag)
 
-    @app.put("/flags/{flag_name}/default", response_model=FlagResponse, tags=["flags"])
+    @flags.put("/flags/{flag_name}/default", response_model=FlagResponse, tags=["flags"])
     def set_default(
         body: SetDefault,
         flag_name: str = Path(min_length=1, max_length=100, pattern=NAME_PATTERN),
@@ -112,7 +128,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         cache.invalidate()
         return result
 
-    @app.put(
+    @flags.put(
         "/flags/{flag_name}/users/{user_id}",
         response_model=OverrideResponse,
         tags=["flags"],
@@ -136,7 +152,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         cache.invalidate()
         return OverrideResponse(flag_name=flag_name, user_id=user_id, enabled=body.enabled)
 
-    @app.get("/flags/{flag_name}/evaluate", response_model=Evaluation, tags=["evaluation"])
+    @flags.get("/flags/{flag_name}/evaluate", response_model=Evaluation, tags=["evaluation"])
     def evaluate(
         response: Response,
         flag_name: str = Path(min_length=1, max_length=100, pattern=NAME_PATTERN),
@@ -172,4 +188,5 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         cache.put(key, result, generation)
         return result
 
+    app.include_router(flags)
     return app

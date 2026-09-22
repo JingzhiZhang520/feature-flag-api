@@ -11,3 +11,11 @@
 | Versioned database migration; local-only API initially | Schema changes are explicit. Authentication is not specified; public deployment needs an access-control decision first. | Implementation assumption; deployment deferred |
 
 Redis is a possible later improvement, not part of the initial build. Its adoption requires shared invalidation and concurrency behavior, not merely replacing a dictionary.
+
+## Approved deployment extension
+
+User approved a separate DigitalOcean App Platform app, `feature-flag-api`, in team `d37603f4-d0af-49df-89ae-5fe92342dfa5`, using one $5/month API instance and a $7/month PostgreSQL development database (base prices, excluding additional usage/tax). This is a demo deployment, not a production database commitment. Redis remains deferred.
+
+User also approved API-key protection. All flag operations require `X-API-Key` when configured; health endpoints and interactive documentation remain public. Cloud configuration sets `REQUIRE_API_KEY=true`, which prevents startup without a key. Local use remains unchanged unless a key is configured. One shared key is intentionally simpler than users and roles.
+
+Migrations run before the single API worker starts. This keeps the small demo deployment self-contained; future incompatible schema changes would require a separate rollout strategy. Public repository source is fetched without enabling automatic deployments, so deployments can follow a passing CI run.
