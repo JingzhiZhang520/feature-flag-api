@@ -135,7 +135,9 @@ Redis remains deferred. Moving to Redis would support a shared cache, but still 
 
 ## DigitalOcean demo deployment
 
-Deployment configuration is in `.do/app.yaml`; live deployment status is recorded in `project-plan.md`. It specifies a single 512 MiB API instance and a PostgreSQL 16 development database, with a base cost of approximately $12/month before additional usage/tax. A development database is intended for demonstrations, not production use.
+Live demo: https://feature-flag-api-sb6jx.ondigitalocean.app/docs. Use **Authorize** with the `API_KEY` value from your local, ignored `.env.deployment` file. This application key is separate from the DigitalOcean access token.
+
+Deployment configuration is in `.do/app.yaml`; verification evidence is recorded in `project-plan.md`. It specifies a single 512 MiB API instance and a PostgreSQL 16 development database, with a base cost of approximately $12/month before additional usage/tax. A development database is intended for demonstrations, not production use.
 
 [Configure this app on DigitalOcean](https://cloud.digitalocean.com/apps/new?repo=https://github.com/JingzhiZhang520/feature-flag-api/tree/main) uses `.do/deploy.template.yaml`, the same spec wrapped for the public-repository deployment flow. Select the intended team and supply the key before deploying.
 

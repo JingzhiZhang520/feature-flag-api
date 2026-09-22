@@ -8,7 +8,7 @@
 | Backend first; DigitalOcean optional | User prioritizes required functionality before deployment. | Approved by user |
 | Cache evaluation results, 1,024 entries, five-second TTL | Implementation choice: clear all entries after writes; generation checks prevent an overlapping read from repopulating stale data. Broad invalidation costs hit rate but keeps the implementation small. | Implemented and tested within approved scope |
 | Opaque, case-sensitive user IDs; strict JSON booleans | No user-account system is required. Names and IDs have bounded lengths; malformed input returns 422. | Implementation assumption |
-| Versioned database migration; local-only API initially | Schema changes are explicit. Authentication is not specified; public deployment needs an access-control decision first. | Implementation assumption; deployment deferred |
+| Versioned database migration; local-only API initially | Schema changes are explicit. Authentication is not specified; public deployment needs an access-control decision first. | Implemented; superseded for cloud by approved API-key deployment |
 
 Redis is a possible later improvement, not part of the initial build. Its adoption requires shared invalidation and concurrency behavior, not merely replacing a dictionary.
 

@@ -10,7 +10,7 @@ Three-hour budget: decisions/environment 20m; core API 60m; cache 30m; tests/CI 
 | Repeated state-setting requests keep the same result | Yes | Repeated PUT and concurrent upsert tests |
 | Cached evaluations avoid SQL; updates invalidate; TTL and capacity enforced | Yes | SQL event counting, cache unit tests, overlapping read/write test |
 | Unknown flag → 404; malformed inputs → 422; unavailable DB on miss → 503 | Yes | Integration suite; failure details remain generic |
-| Unit and PostgreSQL integration tests | Yes | 25 passed on local Python 3.9 and container Python 3.12 |
+| Unit and PostgreSQL integration tests | Yes | 33 passed locally after deployment changes; original 25 also passed in Python 3.12 Docker |
 | GitHub Actions, README, architecture flow diagram | Yes | Local verification and hosted GitHub Actions passed; run linked below |
 
 ## Environment
@@ -38,7 +38,7 @@ Three-hour budget: decisions/environment 20m; core API 60m; cache 30m; tests/CI 
 
 - User approved repository handoff and hosted CI verification before optional work. Local publication review confirmed `.env` is excluded and publishable files do not contain the generated database password.
 - Authentication blocker resolved through user-completed GitHub CLI sign-in. Repository published and hosted CI verified; no remaining handoff blocker.
-- Public production deployment is not claimed: authentication and operational hardening remain unimplemented; service is bound to localhost with one worker.
+- Shared API-key authentication is implemented and tested. Production operational hardening remains outside the agreed demo scope.
 
 ## Optional backlog
 
@@ -50,7 +50,11 @@ Three-hour budget: decisions/environment 20m; core API 60m; cache 30m; tests/CI 
 - Target: separate `feature-flag-api` app in team `d37603f4-d0af-49df-89ae-5fe92342dfa5` (Coding Blitz 01).
 - User approved approximately $12/month base demo setup plus usage/tax and shared API-key protection.
 - Implemented: protected flag routes, fail-closed cloud configuration, PostgreSQL URL compatibility, deployment spec, migration/start command.
-- Verification and live deployment: in progress; no deployed URL claimed yet.
+- Cloud app created: `f3115e2a-d7c0-4ea9-a75e-f40bdf1b1b4b`. Initial deployment `68f22bb8-d298-458b-a472-796813574a65` is ACTIVE.
+- Live docs: https://feature-flag-api-sb6jx.ondigitalocean.app/docs.
+- HTTPS verification passed: readiness/liveness, docs, missing/invalid API keys, create/read, duplicate 409, default changes, both override values, cache invalidation, missing flag 404, invalid boolean 422, and authentication on cached evaluations.
+- Verification record: `cloud-smoke-4146b81f8f`, default true and Alice override false. API-only restart `b148080b-9de0-4192-9185-021c2e24b749` reached ACTIVE; both persisted values and readiness were verified afterward.
+- Deployment source `13dc80b` passed [hosted CI run 35774192995](https://github.com/JingzhiZhang520/feature-flag-api/actions/runs/35774192995), including the 33-test suite.
 
 ## Contributions
 
