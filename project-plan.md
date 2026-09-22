@@ -11,12 +11,12 @@ Three-hour budget: decisions/environment 20m; core API 60m; cache 30m; tests/CI 
 | Cached evaluations avoid SQL; updates invalidate; TTL and capacity enforced | Yes | SQL event counting, cache unit tests, overlapping read/write test |
 | Unknown flag → 404; malformed inputs → 422; unavailable DB on miss → 503 | Yes | Integration suite; failure details remain generic |
 | Unit and PostgreSQL integration tests | Yes | 25 passed on local Python 3.9 and container Python 3.12 |
-| GitHub Actions, README, architecture flow diagram | Yes | Lint/format, migration/drift checks, Docker build and HTTP smoke passed locally; hosted CI not run |
+| GitHub Actions, README, architecture flow diagram | Yes | Local verification and hosted GitHub Actions passed; run linked below |
 
 ## Environment
 
 - Started with a blank workspace except the proposal; initialized local Git on `main`. Initial implementation commit: `8f3b41c`.
-- User selected public repository https://github.com/JingzhiZhang520/feature-flag-api. Repository created and local `origin` configured; publication is pending authentication.
+- User selected public repository https://github.com/JingzhiZhang520/feature-flag-api. Published to `main`; local `main` tracks `origin/main`.
 - Local Python 3.9 and container Python 3.12 tested with PostgreSQL 16.
 - API was verified locally at http://localhost:8000; interactive docs at `/docs`.
 - Demo flag `demo-checkout`: default false, Alice override true; Bob follows default.
@@ -32,11 +32,12 @@ Three-hour budget: decisions/environment 20m; core API 60m; cache 30m; tests/CI 
 - HTTP smoke checked readiness, create, evaluation, and user override. Restarted the API and verified persisted results.
 - `requirements.md` matches the original proposal; `.env` and `.venv` confirmed ignored by Git.
 - Python 3.12 tests reported an upstream Starlette/AnyIO deprecation warning and a non-fatal pytest cache-directory permission warning. Neither affected assertions.
+- Hosted [GitHub Actions run 35772405932](https://github.com/JingzhiZhang520/feature-flag-api/actions/runs/35772405932) passed for commit `8824db1` on 2026-09-22: dependency installation, lint, formatting, PostgreSQL migrations, schema drift check, pytest, and Docker image build all succeeded.
 
 ## Remaining delivery limitations
 
 - User approved repository handoff and hosted CI verification before optional work. Local publication review confirmed `.env` is excluded and publishable files do not contain the generated database password.
-- Hosted CI has not run: terminal Git has no configured GitHub credentials, and the connected GitHub app returned 403 when attempting to publish. No files were uploaded by that failed API call. Awaiting user-completed authentication before pushing and checking CI.
+- Authentication blocker resolved through user-completed GitHub CLI sign-in. Repository published and hosted CI verified; no remaining handoff blocker.
 - Public production deployment is not claimed: authentication and operational hardening remain unimplemented; service is bound to localhost with one worker.
 
 ## Optional backlog
