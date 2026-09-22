@@ -15,7 +15,8 @@ Three-hour budget: decisions/environment 20m; core API 60m; cache 30m; tests/CI 
 
 ## Environment
 
-- Started with a blank workspace except the proposal; initialized local Git on `main`. Repository handoff is in progress; awaiting the user's destination repository.
+- Started with a blank workspace except the proposal; initialized local Git on `main`. Initial implementation commit: `8f3b41c`.
+- User selected public repository https://github.com/JingzhiZhang520/feature-flag-api. Repository created and local `origin` configured; publication is pending authentication.
 - Local Python 3.9 and container Python 3.12 tested with PostgreSQL 16.
 - API was verified locally at http://localhost:8000; interactive docs at `/docs`.
 - Demo flag `demo-checkout`: default false, Alice override true; Bob follows default.
@@ -35,7 +36,7 @@ Three-hour budget: decisions/environment 20m; core API 60m; cache 30m; tests/CI 
 ## Remaining delivery limitations
 
 - User approved repository handoff and hosted CI verification before optional work. Local publication review confirmed `.env` is excluded and publishable files do not contain the generated database password.
-- GitHub Actions configuration exists but cannot have a hosted run until a remote repository is selected and the project is pushed.
+- Hosted CI has not run: terminal Git has no configured GitHub credentials, and the connected GitHub app returned 403 when attempting to publish. No files were uploaded by that failed API call. Awaiting user-completed authentication before pushing and checking CI.
 - Public production deployment is not claimed: authentication and operational hardening remain unimplemented; service is bound to localhost with one worker.
 
 ## Optional backlog

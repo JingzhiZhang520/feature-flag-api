@@ -123,7 +123,7 @@ alembic check
 
 `pytest -q -m 'not integration'` runs cache unit tests without PostgreSQL. Without `TEST_DATABASE_URL`, integration tests are explicitly skipped. With it set, database errors fail the suite. Integration tests apply real migrations and use unique flag names, cleaning up only their own records. They check persistence across fresh app instances, both override values, updates, cache hits avoiding SQL, invalidation races, concurrent upserts, validation, and failure responses.
 
-GitHub Actions installs dependencies, migrates PostgreSQL, checks schema drift, runs formatting/lint and the full test suite, and builds the Docker image. It will run when this workspace is pushed to GitHub; no remote repository is configured yet.
+GitHub Actions installs dependencies, migrates PostgreSQL, checks schema drift, runs formatting/lint and the full test suite, and builds the Docker image. The repository is [JingzhiZhang520/feature-flag-api](https://github.com/JingzhiZhang520/feature-flag-api). Pushes and pull requests trigger the workflow; hosted verification status is recorded in `project-plan.md`.
 
 ## Scope and limitations
 
